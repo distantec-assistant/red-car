@@ -24,10 +24,24 @@ body.travelling{overflow:hidden}
 @media(max-width:450px){.ride-car{left:calc(50% - 80px);width:160px;height:80px;margin-top:-40px}.ride-truck{width:180px;height:60px;margin-top:-30px}.ride-scenery{background-size:450px 100%}.ride-scenery.near{background-size:450px 100%}.ride-heading{top:8vh}.ride-heading p{font-size:17px}.ride-skip{font-size:12px;padding:11px 17px;bottom:max(25px,env(safe-area-inset-bottom))}}
 @media(max-height:500px){.ride-heading{top:12px}.ride-heading p{display:none}.ride-heading h2{font-size:28px}.ride-heading small{margin-top:3px;font-size:12px}.ride-skip{bottom:10px;padding:8px 16px}.ride-car{width:120px;height:60px;left:calc(50% - 60px);margin-top:-30px}.ride-truck{width:150px;height:50px;margin-top:-25px}}
 @media(prefers-reduced-motion:reduce){.ride *{animation:none!important}}
+
+/* Adult-only-by-intent navigation: quiet, far below play controls, one-second hold. */
+body{display:flex;flex-direction:column;min-height:100dvh}
+.catalog-footer{position:relative;flex-shrink:0;margin-top:auto;padding:42px 12px max(34px,env(safe-area-inset-bottom));text-align:center}
+.catalog-back{position:relative;display:inline-block;padding:4px 8px;background:none;color:#b2aab4;text-decoration:none;font-size:11px;line-height:18px;font-weight:400;letter-spacing:.2px;touch-action:none;-webkit-touch-callout:none;-webkit-user-drag:none;user-select:none}
+.catalog-back:after{content:'';position:absolute;bottom:1px;left:8px;right:8px;height:1px;background:#a293b4;transform:scaleX(0);transform-origin:left;transition:none}
+.catalog-back.holding:after{transform:scaleX(1);transition:transform 1000ms linear}
+.catalog-back:hover{color:#9b91a5}.catalog-back:focus-visible{outline:2px solid #a293b4;outline-offset:4px;border-radius:3px}
+.catalog-help{position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:10px;line-height:13px;color:#aaa0ad;opacity:0;pointer-events:none;letter-spacing:0}
+.catalog-back.help .catalog-help{opacity:1}
+body:has(.overlay.open) .catalog-footer,body:has(.ride.open) .catalog-footer{visibility:hidden;pointer-events:none}
+@media(max-height:530px) and (min-width:600px){.caption{position:static;width:auto;margin:23px 190px 0;font-size:12px}.catalog-footer{padding-top:42px}}
 </style></head><body>
 <header><div class="brand">Час пик <span>🚗</span><small>МАЛЕНЬКОЕ ПРИКЛЮЧЕНИЕ</small></div><button class="round sound" id="sound" aria-label="Выключить звук" title="Звук">♪</button></header>
 <main><div class="stage"><div class="levelbar"><button class="pill" id="pickerBtn" aria-label="Выбрать уровень">▦ &nbsp; <span id="levelText"></span></button><span class="dots" id="progress">☆ ☆ ☆</span></div><div class="board-wrap"><div class="board" id="board" aria-label="Игровое поле, шесть на шесть"><div class="exit-gap"></div><button class="exit-arrow" id="exit" aria-label="Выезд красной машинки">➜</button></div></div></div>
 <div class="controls"><button class="round" id="undo" aria-label="Назад на один ход" title="Назад">↶</button><button class="round" id="restart" aria-label="Начать уровень заново" title="Заново">⟳</button><button class="round" id="hint" aria-label="Подсказка" title="Подсказка">💡<span class="wait" id="hintWait"></span></button></div><div class="caption">Помоги красной машинке выехать <span style="color:#e76f69">➜</span><small id="levelSource" style="display:block;margin-top:6px;font-size:12px"></small></div></main>
+<footer class="catalog-footer" id="catalogFooter"><a class="catalog-back" id="catalogBack" href="/" draggable="false" aria-label="Все игры. Удерживайте одну секунду или нажмите Enter">← Все игры<span class="catalog-help" id="catalogHelp" role="status" aria-live="polite"></span></a></footer>
+
 <div class="overlay" id="levelsModal" role="dialog" aria-modal="true" aria-label="Выбор уровня"><div class="card"><button class="close" id="closePicker" aria-label="Закрыть">×</button><h2 style="margin-bottom:8px">Поехали! 🚗</h2><p style="font-size:12px;margin:0 0 12px;color:#9c8c9c">Набор: 12 машинок и 4 грузовика</p><div class="picker-scroll" id="picker"></div></div></div>
 <div class="overlay" id="winModal" role="dialog" aria-modal="true" aria-label="Уровень пройден"><div class="card"><div class="trophy">🏆</div><div class="win-stars" id="winStars">★★★</div><div class="win-info" id="winInfo"></div><h2>Ура!</h2><button class="next" id="next" aria-label="Следующий уровень">➜</button><div><button class="pill" id="winPicker" aria-label="Выбрать уровень">▦</button></div></div></div>
 <div class="ride" id="ride" role="dialog" aria-modal="true" aria-labelledby="rideLevel" aria-describedby="rideHelp" tabindex="-1">
@@ -109,7 +123,7 @@ function art(i,c){
  return `<svg data-vehicle="${truck?'truck':'car'}" viewBox="${vertical?`0 0 ${h} ${w}`:`0 0 ${w} ${h}`}" aria-hidden="true"><g ${vertical?'transform="translate(64 0) rotate(90)"':''}>${drawing}</g></svg>`;
 }
 function paperLabel(n){let l=LEVELS[n],numbers=[...new Set([l.sourceCard,...(l.sourceCards||[])].filter(Number.isInteger))].sort((a,b)=>a-b);return numbers.length?(numbers.length>1?'Карточки оригинала № ':'Карточка оригинала № ')+numbers.join(', '):''}
-function load(n){if(rideTarget!==null)closeRide();clearTimeout(winTimer);if(n!==hintLevel){hintLevel=n;levelStart=Date.now();clearInterval(hintTick);hintTick=setInterval(hintClock,250)}hintToken++;solutionCache=new Map();drag=null;busy=false;level=n;saved.level=n;save();cars=LEVELS[n].cars;state=cars.map(c=>c[3]);history=[];cacheSolution(state,LEVELS[n].solution||[]);board.querySelectorAll('.car').forEach(e=>e.remove());cars.forEach((c,i)=>{let el=document.createElement('div');el.className='car';el.dataset.index=i;el.tabIndex=0;el.role='button';el.setAttribute('aria-label',i===0?'Красная машинка':c[2]===3?`Грузовик ${cars.slice(0,i).filter(p=>p[2]===3).length+1}`:`Машинка ${cars.slice(0,i).filter(p=>p[2]===2).length+1}`);el.style.width=(c[0]==='h'?c[2]:1)*100/6+'%';el.style.height=(c[0]==='v'?c[2]:1)*100/6+'%';el.innerHTML=art(i,c);el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>keyMove(e,i));board.appendChild(el)});$('levelText').textContent=`${n+1} / ${LEVELS.length}`;$('levelSource').textContent=paperLabel(n);hintUsed=false;$('progress').textContent=starText(bestStars(n)).trim();$('winModal').classList.remove('open');$('levelsModal').classList.remove('open');update();soundUI()}
+function load(n){cancelCatalogHold();if(rideTarget!==null)closeRide();clearTimeout(winTimer);if(n!==hintLevel){hintLevel=n;levelStart=Date.now();clearInterval(hintTick);hintTick=setInterval(hintClock,250)}hintToken++;solutionCache=new Map();drag=null;busy=false;level=n;saved.level=n;save();cars=LEVELS[n].cars;state=cars.map(c=>c[3]);history=[];cacheSolution(state,LEVELS[n].solution||[]);board.querySelectorAll('.car').forEach(e=>e.remove());cars.forEach((c,i)=>{let el=document.createElement('div');el.className='car';el.dataset.index=i;el.tabIndex=0;el.role='button';el.setAttribute('aria-label',i===0?'Красная машинка':c[2]===3?`Грузовик ${cars.slice(0,i).filter(p=>p[2]===3).length+1}`:`Машинка ${cars.slice(0,i).filter(p=>p[2]===2).length+1}`);el.style.width=(c[0]==='h'?c[2]:1)*100/6+'%';el.style.height=(c[0]==='v'?c[2]:1)*100/6+'%';el.innerHTML=art(i,c);el.addEventListener('pointerdown',down);el.addEventListener('keydown',e=>keyMove(e,i));board.appendChild(el)});$('levelText').textContent=`${n+1} / ${LEVELS.length}`;$('levelSource').textContent=paperLabel(n);hintUsed=false;$('progress').textContent=starText(bestStars(n)).trim();$('winModal').classList.remove('open');$('levelsModal').classList.remove('open');update();soundUI()}
 function position(i,p){const c=cars[i],el=board.querySelector(`[data-index="${i}"]`);el.style.left=(c[0]==='h'?p:c[1])*100/6+'%';el.style.top=(c[0]==='v'?p:c[1])*100/6+'%'}
 function occupancy(s){let grid=new Int8Array(36).fill(-1);cars.forEach((c,i)=>{for(let k=0;k<c[2];k++){let x=c[0]==='h'?s[i]+k:c[1],y=c[0]==='v'?s[i]+k:c[1];grid[y*6+x]=i}});return grid}
 function bounds(i,s=state,grid=occupancy(s)){let c=cars[i],lo=s[i],hi=lo;const free=p=>grid[(c[0]==='h'?c[1]:p)*6+(c[0]==='h'?p:c[1])]<0;while(lo>0&&free(lo-1))lo--;while(hi+c[2]<6&&free(hi+c[2]))hi++;return [lo,hi]}
@@ -125,11 +139,11 @@ function unlockAudio(){if(!saved.sound)return;try{audio=audio||new(window.AudioC
 function beep(freq,dur=.12,volume=.09,delay=0){if(!saved.sound||!audio)return;try{let o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime+delay;o.type='sine';o.frequency.value=freq;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(volume,t+.012);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+dur+.02)}catch(e){}}
 function soundUI(){$('sound').textContent=saved.sound?'♪':'♫̸';$('sound').setAttribute('aria-label',saved.sound?'Выключить звук':'Включить звук')}
 $('sound').onclick=()=>{saved.sound=!saved.sound;save();soundUI();unlockAudio();beep(660)};
-function win(){if(busy)return;busy=true;clearHint();update();let el=board.querySelector('[data-index="0"]');el.classList.add('exiting');requestAnimationFrame(()=>position(0,7.1));if(!saved.completed.includes(level))saved.completed.push(level);let mv=history.length,mn=LEVELS[level].minMoves,st=starsFor(mv,mn,hintUsed);saved.stars=saved.stars||{};if(st>(saved.stars[level]||0))saved.stars[level]=st;save();$('winStars').innerHTML='<span class=on>★</span>'.repeat(st)+'<span class=off>★</span>'.repeat(3-st);$('winInfo').textContent=hintUsed?`Ходов: ${mv}. С подсказкой — одна звезда`:(st===3?`Ходов: ${mv}. Отлично!`:`Ходов: ${mv}. Можно за ${mn}`);$('progress').textContent=starText(bestStars(level)).trim();$('status').textContent='Ура! Машинка выехала!';[523,659,784,1047].forEach((f,i)=>beep(f,.25,.1,i*.13));winTimer=setTimeout(()=>{$('winModal').classList.add('open');$('next').focus();confetti()},800)}
+function win(){if(busy)return;cancelCatalogHold();busy=true;clearHint();update();let el=board.querySelector('[data-index="0"]');el.classList.add('exiting');requestAnimationFrame(()=>position(0,7.1));if(!saved.completed.includes(level))saved.completed.push(level);let mv=history.length,mn=LEVELS[level].minMoves,st=starsFor(mv,mn,hintUsed);saved.stars=saved.stars||{};if(st>(saved.stars[level]||0))saved.stars[level]=st;save();$('winStars').innerHTML='<span class=on>★</span>'.repeat(st)+'<span class=off>★</span>'.repeat(3-st);$('winInfo').textContent=hintUsed?`Ходов: ${mv}. С подсказкой — одна звезда`:(st===3?`Ходов: ${mv}. Отлично!`:`Ходов: ${mv}. Можно за ${mn}`);$('progress').textContent=starText(bestStars(level)).trim();$('status').textContent='Ура! Машинка выехала!';[523,659,784,1047].forEach((f,i)=>beep(f,.25,.1,i*.13));winTimer=setTimeout(()=>{$('winModal').classList.add('open');$('next').focus();confetti()},800)}
 $('exit').onclick=()=>{if(!busy&&!drag&&canExit()){unlockAudio();history.push([...state]);win()}};
 $('undo').onclick=()=>{if(busy||drag||!history.length)return;clearHint();state=history.pop();update()};$('restart').onclick=()=>load(level);
 $('next').onclick=()=>{if(level+1<LEVELS.length)startRide(level+1);else{load(0);openPicker()}};
-function openPicker(){if(drag)return;$('winModal').classList.remove('open');const picker=$('picker');picker.innerHTML='';for(let start=0;start<LEVELS.length;start+=10){let end=Math.min(start+10,LEVELS.length),label=document.createElement('div');label.className='group-label';label.innerHTML=`${start+1}–${end} <span>${LEVELS[start].minMoves}–${LEVELS[end-1].minMoves} ↔</span>`;picker.appendChild(label);let grid=document.createElement('div');grid.className='picker';picker.appendChild(grid);for(let i=start;i<end;i++){let b=document.createElement('button');b.className='level'+(saved.completed.includes(i)?' done':'')+(i===level?' current':'');b.dataset.band=Math.max(0,Math.min(4,Math.floor((LEVELS[i].minMoves-5)/8)));let bs=bestStars(i);b.innerHTML=`${i+1}${bs?`<small class=st>${'★'.repeat(bs)}</small>`:''}`;b.setAttribute('aria-label',`Уровень ${i+1}, ${LEVELS[i].minMoves} ходов${LEVELS[i].sourceCard?`, карточка оригинала ${LEVELS[i].sourceCard}`:''}${saved.completed.includes(i)?`, пройден, звёзд: ${bestStars(i)}`:''}`);b.onclick=()=>load(i);grid.appendChild(b)}}$('levelsModal').classList.add('open');$('closePicker').focus();requestAnimationFrame(()=>{let active=picker.querySelector('.current');if(active)picker.scrollTop=active.offsetTop-picker.offsetTop-picker.clientHeight/2+active.clientHeight/2})}
+function openPicker(){cancelCatalogHold();if(drag)return;$('winModal').classList.remove('open');const picker=$('picker');picker.innerHTML='';for(let start=0;start<LEVELS.length;start+=10){let end=Math.min(start+10,LEVELS.length),label=document.createElement('div');label.className='group-label';label.innerHTML=`${start+1}–${end} <span>${LEVELS[start].minMoves}–${LEVELS[end-1].minMoves} ↔</span>`;picker.appendChild(label);let grid=document.createElement('div');grid.className='picker';picker.appendChild(grid);for(let i=start;i<end;i++){let b=document.createElement('button');b.className='level'+(saved.completed.includes(i)?' done':'')+(i===level?' current':'');b.dataset.band=Math.max(0,Math.min(4,Math.floor((LEVELS[i].minMoves-5)/8)));let bs=bestStars(i);b.innerHTML=`${i+1}${bs?`<small class=st>${'★'.repeat(bs)}</small>`:''}`;b.setAttribute('aria-label',`Уровень ${i+1}, ${LEVELS[i].minMoves} ходов${LEVELS[i].sourceCard?`, карточка оригинала ${LEVELS[i].sourceCard}`:''}${saved.completed.includes(i)?`, пройден, звёзд: ${bestStars(i)}`:''}`);b.onclick=()=>load(i);grid.appendChild(b)}}$('levelsModal').classList.add('open');$('closePicker').focus();requestAnimationFrame(()=>{let active=picker.querySelector('.current');if(active)picker.scrollTop=active.offsetTop-picker.offsetTop-picker.clientHeight/2+active.clientHeight/2})}
 $('pickerBtn').onclick=openPicker;$('winPicker').onclick=openPicker;$('closePicker').onclick=()=>{$('levelsModal').classList.remove('open');$('pickerBtn').focus()};$('levelsModal').onclick=e=>{if(e.target===$('levelsModal'))$('closePicker').click()};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('closePicker').click()});
 function stateKey(s){let key=0,mul=1;for(let i=0;i<s.length;i++){key+=s[i]*mul;mul*=8}return key}
 function cacheSolution(start,path){let s=start.slice();for(let move of path){solutionCache.set(stateKey(s),move);if(!move.exit)s[move.i]=move.p}}
@@ -151,13 +165,13 @@ let rideTarget=null,rideTimer=null,rideInert=[];
 function closeRide(){clearTimeout(rideTimer);rideTimer=null;rideTarget=null;$('ride').classList.remove('open');document.body.classList.remove('travelling');rideInert.forEach(([el,was])=>el.inert=was);rideInert=[]}
 function finishRide(){if(rideTarget===null)return;const target=rideTarget;closeRide();load(target);$('pickerBtn').focus()}
 function startRide(target){
- if(rideTarget!==null)return;
+ if(rideTarget!==null)return;cancelCatalogHold();
  if(rideMotion.matches){load(target);$('pickerBtn').focus();return}
  clearTimeout(winTimer);clearHint();clearInterval(hintTick);hintTick=null;busy=true;
  $('winModal').classList.remove('open');$('levelsModal').classList.remove('open');
  rideTarget=target;$('rideLevel').textContent=`Уровень ${target+1}`;
  $('rideCar').innerHTML=art(0,['h',2,2,0]);$('rideTruck').innerHTML=art(1,['h',0,3,0]);
- rideInert=[document.querySelector('header'),document.querySelector('main'),$('winModal'),$('levelsModal')].map(el=>[el,el.inert]);rideInert.forEach(([el])=>el.inert=true);
+ rideInert=[document.querySelector('header'),document.querySelector('main'),$('winModal'),$('levelsModal'),$('catalogFooter')].map(el=>[el,el.inert]);rideInert.forEach(([el])=>el.inert=true);
  document.body.classList.add('travelling');$('ride').classList.add('open');$('ride').focus();
  unlockAudio();beep(165,.18,.025);beep(210,.16,.025,.18);
  rideTimer=setTimeout(finishRide,RIDE_MS);
@@ -165,6 +179,29 @@ function startRide(target){
 $('ride').addEventListener('click',finishRide);
 $('ride').addEventListener('keydown',e=>{if(['Enter',' ','Escape'].includes(e.key)){e.preventDefault();e.stopPropagation();finishRide()}});
 rideMotion.addEventListener('change',e=>{if(e.matches)finishRide()});
+
+const CATALOG_HOLD_MS=1000;
+let catalogPointer=null,catalogTimer=null,catalogHelpTimer=null,catalogNavigating=false;
+function catalogAvailable(){return !busy&&!drag&&!catalogNavigating&&!document.querySelector('.overlay.open,.ride.open')}
+function cancelCatalogHold(){clearTimeout(catalogTimer);catalogTimer=null;catalogPointer=null;$('catalogBack').classList.remove('holding')}
+function catalogHelp(){if(!catalogAvailable())return;clearTimeout(catalogHelpTimer);$('catalogHelp').textContent='Удерживай, чтобы выйти';$('catalogBack').classList.add('help');catalogHelpTimer=setTimeout(()=>{$('catalogBack').classList.remove('help');$('catalogHelp').textContent=''},2000)}
+function goCatalog(){if(!catalogAvailable()){cancelCatalogHold();return}cancelCatalogHold();clearTimeout(catalogHelpTimer);catalogNavigating=true;save();window.location.assign('/')}
+$('catalogBack').addEventListener('pointerdown',e=>{
+ e.stopPropagation();if(e.button!==0||e.isPrimary===false||catalogPointer!==null||!catalogAvailable())return;
+ e.preventDefault();clearTimeout(catalogHelpTimer);$('catalogBack').classList.remove('help');$('catalogHelp').textContent='';
+ catalogPointer=e.pointerId;$('catalogBack').classList.add('holding');
+ catalogTimer=setTimeout(()=>{if(catalogPointer!==null)goCatalog()},CATALOG_HOLD_MS);
+});
+$('catalogBack').addEventListener('pointerup',e=>{e.stopPropagation();if(e.pointerId!==catalogPointer)return;cancelCatalogHold();catalogHelp()});
+$('catalogBack').addEventListener('pointerleave',cancelCatalogHold);
+$('catalogBack').addEventListener('pointercancel',cancelCatalogHold);
+$('catalogBack').addEventListener('blur',cancelCatalogHold);
+$('catalogBack').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();catalogHelp()});
+for(const type of ['contextmenu','auxclick','dragstart'])$('catalogBack').addEventListener(type,e=>e.preventDefault());
+$('catalogBack').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();e.stopPropagation();goCatalog()}else if(e.key==='Escape'){e.preventDefault();cancelCatalogHold()}});
+window.addEventListener('pointerup',e=>{if(e.pointerId===catalogPointer)cancelCatalogHold()});
+window.addEventListener('blur',cancelCatalogHold);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelCatalogHold()});
 
 load(level);
 </script></body></html>
